@@ -1,0 +1,503 @@
+Prosper's data set by Yann Dupis
+========================================================
+
+In this exploratory analysis we will explore a dataset from the company Prosper, who is part of the peer-to-peer lending industry. In this analysis we want to answer the following questions:
+
+Univariate analysis
+
+* What are the characteristics of the loan (loan amount, term, etc.)?
+* Who uses Prosper?
+
+Multivariate Analysis
+
+* How does Prosper assess risk?
+* Does Prosper assess risk correctly?
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
+library(ggplot2)
+library(dplyr)
+library(GGally)
+library(plotly)
+library(lubridate)
+require(gridExtra)
+setwd("/Users/yanndupis/Documents/Data_Science/Udacity/R/EDA_Course_Materials/Project")
+```
+
+# Characteristics of the dataset
+
+Let's load the data set:
+```{r echo=FALSE}
+pr <- read.csv("prosperLoanData.csv",sep=",")
+```
+
+What is the structure of the dataset?
+```{r echo=FALSE}
+dim(pr)
+```
+
+This data set contains 113,937 loans with 81 variables, including loan amount, borrower rate (or interest rate), current loan status, borrower income, borrower employment status, borrower credit history, Prosper score and the latest payment information.
+
+```{r echo=FALSE}
+str(pr)
+```
+
+# Univariate Plots Section
+
+### What are the characteristics of the loan (loan amount, term, etc)?
+In this section we would like to analyze the characteristics of the loan provided on Prosper's platform, in terms of loan origination date, loan amount, term, monthly payment, and current loan status.
+
+
+```{r echo=FALSE}
+#The ListinCreationDate was interpreted as a factor. Let's convert it into date.
+pr$ListingCreationDate <- as.Date(pr$ListingCreationDate, 
+                                  format = "%Y-%m-%d %H:%M:%S") 
+
+pr=subset(pr,ListingCreationDate>="2009-08-01")
+dim(pr)
+```
+
+There are 84,672 bonds listed since July 2009.
+
+### Loan orgination amount
+```{r echo=FALSE}
+summary(pr$LoanOriginalAmount)
+```
+The minimum loan amount is $1000, the maximum is $35,000 and the average loan amount is $8,337. However the median is $6,500. The difference between the average and median is proably due to a distribution skewed to the right.
+
+```{r loan orginal amount, fig.width=12, fig.height=6, echo=FALSE}
+ggplot(data=pr,aes(LoanOriginalAmount))+
+  geom_histogram(binwidth=100,color=I('black'),fill=I('#56B4E9')) +
+  scale_x_continuous(breaks=seq(0,35000,2500),lim=c(0,35000))
+```
+
+When we look at the distribution we observe that there are peaks every $5000 ($5000, $10000, $15,000, $20,000, and $25,000). However it's interesting to note there is a large number of loans with laon amounts equal to $4,000. One of the reasons why $4,000 loans are popular is because Prosper makes it harder to get loans over than $4,000.
+
+
+### Term
+The length of the loan expressed in months.
+
+```{r fig.width=12, fig.height=6, echo=FALSE}
+pr$Term<-factor(pr$Term)
+
+ggplot(data=pr,aes(Term)) + 
+  geom_bar(color=I('black'),fill=I('#56B4E9'))
+```
+Prosper provides mostly 36 and 60-month loans.
+
+### Monthly Loan Payment
+```{r}
+summary(pr$MonthlyLoanPayment)
+```
+
+Most loans have a mothly payment between $131.6 and $371.6. It's very surprising that some loans have monthly payments equal to 0. There is probably a data quality issue as it shouldn't be possible to have monthly payments equal to 0.
+
+```{r fig.width=12, fig.height=6, echo=FALSE}
+ggplot(data=pr,aes(MonthlyLoanPayment))+
+  geom_histogram(binwidth=50,color=I('black'),fill=I('#56B4E9'))+
+  scale_x_continuous(limits=c(0,2252),breaks=seq(0,2252,100))
+```
+
+```{r fig.width=12, fig.height=6, echo=FALSE}
+ggplot(data=pr,aes(MonthlyLoanPayment))+
+  geom_histogram(binwidth=1,color=I('black'),fill=I('#56B4E9'))+
+  scale_x_continuous(limits=c(0,500),breaks=seq(0,500,25))
+```
+If we change the binwidth to 1 and limit the x axis to $500 we can observe the most common monthly payment is around $175. This monthly payment probably corresponds to a $4000 loan.
+
+### Borrower Rate
+```{r fig.width=12, fig.height=6, echo=FALSE}
+summary(pr$BorrowerRate)
+
+ggplot(data=pr,aes(BorrowerRate)) + 
+  geom_histogram(color=I('black'),fill=I('#56B4E9'))
+```
+The Borrower Rate seems quite uniformly distributed.
+ 
+### LoanStatus
+```{r fig.width=12, fig.height=6, echo=FALSE}
+ggplot(data=pr,aes(LoanStatus))+geom_bar(color=I('black'),fill=I('#56B4E9'))
+table(pr$LoanStatus)
+```
+Most of the loans are active but some have late payments.
+
+What's the percentage of people who defaulted?
+```{r echo=FALSE}
+nrow(pr[pr$LoanStatus=='Defaulted',])/nrow(pr)
+```
+Around 11.7% of loans have defaulted.
+
+What's the percentage of people who had late payments?
+```{r echo=FALSE}
+nrow(subset(pr,LoanStatus=='Past Due (>120 days)' | 
+            LoanStatus=='Past Due (1-15 days)'  |
+            LoanStatus=='Past Due (16-30 days)' |
+            LoanStatus=='Past Due (31-60 days)' |
+            LoanStatus=='Past Due (61-90 days)' | 
+            LoanStatus=='Past Due (91-120 days)'))/nrow(pr)
+
+table(pr$LoanStatus)
+```
+Around 2.5% of loan have late payments.
+
+
+### ProsperScore
+A custom risk score was created by Prosper in order to assess risk. The score ranges from 1-11, with 11 being the best, or lowest, risk score.
+```{r echo=FALSE}
+summary(pr$ProsperScore)
+```
+
+```{r fig.width=12, fig.height=6, echo=FALSE}
+table(pr$ProsperScore)
+
+ggplot(data=pr,aes(ProsperScore))+
+  geom_bar(color=I('black'),fill=I('#56B4E9')) + 
+  scale_x_continuous(breaks=seq(1,11,1))
+```
+Most of the loans have a score around 6.
+
+### Why people use Prosper?
+```{r fig.width=12, fig.height=6, echo=FALSE}
+ggplot(data=pr,aes(ListingCategory..numeric.)) + 
+  geom_bar(color=I('black'),fill=I('#56B4E9')) +
+  scale_x_discrete(breaks=seq(0,20,1)) 
+```
+
+People use Prosper mostly for Debt Consolidation (1), Other (4), Home Improvement (2), or Business (3).
+
+# Characteristics of people who use Prosper.
+
+### Income range 
+What's the distribution of the IncomeRange of Propsper's users?
+```{r fig.width=12, fig.height=6, echo=FALSE}
+pr$IncomeRange<-ordered(pr$IncomeRange,levels=c("Not displayed",
+                                                "Not employed","$0",
+                                                "$1-24,999",
+                                                "$25,000-49,999",
+                                                "$50,000-74,999",
+                                                "75,000-99,999",
+                                                "$100,000+"))
+
+ggplot(data=pr,aes(IncomeRange)) + 
+  geom_bar(color=I('black'),fill=I("#F79420"))
+```
+Most of the people using Prosper have an income between $25000 and $75000.
+
+### Debt Income Ratio
+What's the distribution of the debt to income ratio?
+```{r}
+summary(pr$DebtToIncomeRatio)
+```
+
+```{r fig.width=12, fig.height=6, echo=FALSE}
+ggplot(data=pr,aes(DebtToIncomeRatio)) +
+  geom_histogram(binwidth=0.01,color=I('black'),fill=I('#F79420')) + 
+  xlim(0,1.5)
+```
+The debt to income ratio is skewed to the right with a median of 0.22.
+
+### Credit Score
+What's the distribtution of the credit score?
+```{r echo=FALSE}
+summary(pr$CreditScoreRangeLower)
+```
+
+```{r fig.width=12, fig.height=6, echo=FALSE}
+ggplot(data=pr,aes(CreditScoreRangeLower)) + 
+  geom_histogram(binwidth=1,fill=I("#F79420") ) + 
+  scale_x_continuous(breaks=seq(600,880,20))
+```
+The distribution of the credit score is centered around 700.
+
+What's the distribtution of Monthly Income?
+
+### Monthly Income
+```{r fig.width=12, fig.height=6, echo=FALSE}
+summary(pr$StatedMonthlyIncome)
+  ggplot(data=pr,aes(StatedMonthlyIncome)) +       
+  geom_histogram(binwidth=500, color=I('black'), fill=I("#F79420") ) + 
+  xlim(0,10000)
+```
+On average people who use Prosper have a monthly income of $5,935.
+
+# Univariate Analysis
+
+
+There are lots of features in the dataset that describe characteristics of the loan, like the monthly payment, loan origination amount, borrower rate, term, etc. It would be interesting to see if the monthly payment amount remains the same for a same loan origination amount and term. 
+
+Prosper has a Prosper score that quantifies the loan risk. It would be interesting to see if it has an impact on the montly payment for a same loan origination amount and term. 
+
+We can also try to identify if there are characteristics of the borrower that influence the Prosper score.
+
+Finally we can explore how Prosper's portfolio has evolved.
+
+We have observed that certain loans have a monthly payment equal to 0. There must be a data qualilty issue. For the rest of the analysis, we will exclude these loans.
+
+```{r echo=FALSE}
+pr <- subset(pr,MonthlyLoanPayment!=0)
+```
+
+
+# Bivariate Plots Section
+
+### What's the number of loans issued by loan origination date?
+```{r fig.width=12, fig.height=6, echo=FALSE}
+#Let's create a variable that includes only month and year of the loan origination date
+pr$yearmth_orig_date <- substr(as.character(pr$LoanOriginationDate), 1,7)
+
+pr$yearmth_orig_date <- as.Date(paste(pr$yearmth_orig_date,"-01",sep=""))
+
+ggplot(pr,aes(yearmth_orig_date,fill=factor(Term))) + 
+      geom_bar( colour="darkgreen")
+
+```
+The number of loans issued by loan orgination date have highly increased between 2009 and 2014 even though there was a drop in 2013. Most of the loans issued had a term of 36 months. Prosper issued 60-month loans for the first time in 2011. They stopped issuing 12-month loans in 2013.
+
+### Correlation matrix
+```{r fig.width=13, fig.height=13, echo=FALSE}
+#Let's select only the variables of interest.
+selected_vars <- c("BorrowerRate","DebtToIncomeRatio",
+                   "ProsperScore","CreditScoreRangeLower",
+                   "DelinquenciesLast7Years","LoanOriginalAmount",
+                   "MonthlyLoanPayment")
+
+pr_column_select <- pr[,selected_vars]
+pr_column_select<-na.omit(pr_column_select)
+
+ggpairs(pr_column_select)
+```
+
+```{r}
+cor.test(pr$CreditScoreRangeLower,pr$ProsperScore)
+```
+
+# Bivariate Analysis
+
+There are lots of variables correlated in the data set. The most correlated variables (corr = 0.911) are loan origination amount and monthly loan payment, which is not surprising. 
+
+Borrower rate is negatively correlated with Prosper score and credit score.
+
+Debt income ratio is slighlty correlated with credit score.
+
+It's interesting to highlight that credit score and Prosper score are highly correlated (0.386). However, an important variance remains unexplained, which means that Prosper doesn't only use the credit score to assess risk.
+
+Prosper score is also correlated with loan origination amount and monthly payment.
+
+
+### What's the average loan amount and number of loans by origin date for each term?
+
+We can explore how the number of loans, loan origination amount, and monthly payment have evolved between 2009 and 2014. 
+
+To do so, we can create three metrics: number of loans, average monthly payment, and average loan origination amount by loan origination date and Term.
+```{r fig.width=12, fig.height=6, echo=FALSE}
+# Summarize the data by yearmth_orig_date and Term
+# The metrics calculated by yearmth_orig_date and Term are
+# mean borrower rate, mean loan origination amount and 
+# mean monthly loan payment
+avg_rate_amt2 <- pr %>%
+  group_by(yearmth_orig_date,Term) %>%
+  summarise(
+    Rate_mean = mean(BorrowerRate, na.rm = TRUE),
+    LoanAmount_mean = mean(LoanOriginalAmount, na.rm = TRUE),
+    monthlypayment_mean = mean(MonthlyLoanPayment, na.rm = TRUE),
+    count_loan = n()
+  )
+
+p1 <- ggplot(data=avg_rate_amt2,
+            aes(x=yearmth_orig_date,y=count_loan,fill=Term)) + 
+            geom_bar(stat = "identity") 
+
+p2 <- ggplot(data=avg_rate_amt2,
+            aes(yearmth_orig_date,LoanAmount_mean)) +
+            geom_line(aes(colour=Term))
+
+grid.arrange(p1, p2, ncol=2)
+```
+The average loan origination amount has increased since 2009 for loans with terms of 12 and 36 monthly, until Prosper stopped offering 12-month loans in 2013.
+
+The 60-month loans have started with a very high loan origination amount in 2011, dropped in 2012, then increased steadily in 2013 and 2014.
+
+### What's the average loan amount and average monthly payment by origin date for each term?
+```{r fig.width=12, fig.height=6, echo=FALSE}
+p3 <- ggplot(data=avg_rate_amt2,
+            aes(yearmth_orig_date,monthlypayment_mean)) + 
+            geom_line(aes(colour=Term))
+
+grid.arrange(p2, p3, ncol=2)
+```
+
+### Monthly payment and loan amount
+```{r fig.width=12, fig.height=6, echo=FALSE}
+ggplot(data=pr,aes(LoanOriginalAmount,MonthlyLoanPayment)) +
+  geom_jitter(aes(color=Term),alpha=1/20) +
+  scale_color_brewer(type = 'qual')
+```
+
+There are three clusters of points: one is the 12-month loan, another is the 30-month loan, and the last cluster is the 60-month loan.
+
+We can try to explain the variance.
+```{r fig.width=12, fig.height=6, echo=FALSE}
+# ProsperScore was interpreted as factor. Lets convert it onto numeric.
+pr$ProsperScore=as.numeric(pr$ProsperScore)
+
+ggplot(data=subset(pr,!is.na(ProsperScore) & Term=='36'),aes(LoanOriginalAmount,MonthlyLoanPayment))+
+  geom_point(aes(color=ProsperScore),alpha=1/5) + 
+  scale_color_continuous(high="green",low="blue")
+```
+
+
+We observe that the variance is explained by risk, which is represented by the ProsperScore. The bottom of the scatter plot is dominated by loans with a ProsoperScore equal to 11, which represents loans with low risks. The top of the scatter plot is dominated by loans with a ProsoperScore equal to 4, which represents loans with higher risks. Loans with a loan amount higher than $25000 are mostly dominated by a ProsperScore equal or superior to 0.
+
+#### But is ProsperScore good at identifying if the loan is going to default or not?
+
+```{r fig.width=12, fig.height=6, echo=FALSE}
+# Based on the Loan Status variable we can create a variable "defaulted" that
+# indicates if the laon defaulted or not.
+pr$defaulted<-ifelse(pr$LoanStatus=='Defaulted',TRUE,FALSE)
+
+table(pr$defaulted)
+
+pr$defaulted<-factor(pr$defaulted)
+
+ggplot(data=subset(pr,!is.na(ProsperScore)),
+      aes(defaulted,ProsperScore)) + 
+      geom_boxplot()
+```
+Based on the boxplot above, it doesn't seem that loans that defaulted and loans that didn't default have a very different Prosper Scores. 
+
+
+# Multivariate Analysis
+
+We have observed that the Prosper score has an influence on montly payments for a same loan origination amount and same term. This Score should be a way to quantify the probability that the loan is going to default or not. However when we look at the Prosper Score it doesn't seem be a great indicator for the investor if he should invest or not.
+
+# Final Plots and Summary
+
+### Plot One
+```{r fig.width=10, fig.height=6, echo=FALSE}
+
+x1 <- plot_ly(data = avg_rate_amt2 , x = yearmth_orig_date, 
+              y = count_loan, type = "bar", color = Term) 
+
+x2 <- layout(x1, barmode = "stack")
+
+x3 <-plot_ly(avg_rate_amt2, x = yearmth_orig_date, 
+             y = LoanAmount_mean, color = Term)
+
+p <- subplot(x2,x3,margin = 0.05)
+
+f <- list(
+  #family = "Courier New, monospace",
+  size = 12,
+  color = "#7f7f7f"
+)
+
+xlab <- list(
+  title = "Loan Origination Date" ,
+  titlefont = f
+)
+
+ylab <- list(
+  title = "Number of Loans",
+  titlefont = f
+)
+
+xlab2 <- list(
+  title = "Loan Origination Date" ,
+  titlefont = f
+)
+
+ylab2 <- list(
+  title = "Average Loan Origination Amount ($)",
+  titlefont = f
+)
+
+p <- layout(p,
+            xaxis = xlab,
+            yaxis = ylab,
+            
+            xaxis2 = xlab2 ,
+            yaxis2 = ylab2,
+title = "Number of loans and average loan origination
+amount by loan origination date for each term")
+
+p
+```
+
+### Description One 
+The plots above describe how Prosper's porfolio has involved between 2009 and 2014. The portfolio has drastically changed between 2009 and 2014. In 2009, Prosper issued only 36-month loans. In 2011, Prosper started to issue 12-month and 60-months loan, but stoped issuing 12-month loans in 2013. It seems that Prosper has really changed their underwriting strategies. Between 2011 and 2013, the average loan origination amount has drastically increased, which could expose the lender to a higher risk of loss. It's perhaps one of the reasons why Prosper stopped issuing 12-month loans.
+
+Most of loans are 36-month loans, and the average loan origination amount has increased drastically between 2009 and 2014.
+
+The 60-month loans started with a very high loan origination amount in 2011, dropped in 2012,
+then increased steadily in 2013 and 2014.
+
+
+## Plot Two
+```{r fig.width=9, fig.height=6, echo=FALSE}
+f <- list(
+  #family = "Courier New, monospace",
+  size = 12,
+  color = "#7f7f7f"
+)
+x <- list(
+  title = "Loan Origination Amount ($)" ,
+  titlefont = f
+)
+y <- list(
+  title = "Monthly Loan Payment ($)",
+  titlefont = f
+)
+
+
+plot_ly(data = subset(pr,!is.na(ProsperScore) & Term=='36'), 
+        x = LoanOriginalAmount, y = MonthlyLoanPayment, 
+        mode = "markers", color = ProsperScore) %>%
+        layout(xaxis = x, yaxis = y, 
+title = "Monthly Loan Payment by Loan Origination
+Amount colored by ProsperScore for 36 months loan" )
+```
+
+### Description Two
+If we look at 36-month loans by monthly loan payment and loan origination amount, we notice that there is a linear relation. However, the monthly payment is influenced by the Prosper score for a same loan orgination amount and same term. 
+We can also identify a couple of outliers where, for example, a same loan orignation amount and montly loan payment yields a Proser score around 10 instead of being around 2 or 3. It means that in order to estimate a monthly payment for a same loan origination amount and term, Prosper uses  factors other than just those used for creating of the Prosper Score.
+
+
+### Plot Three
+```{r fig.width=9, fig.height=6, echo=FALSE}
+f <- list(
+  size = 12,
+  color = "#7f7f7f"
+)
+x <- list(
+  title = "Does the loan has defaulted?" ,
+  titlefont = f
+)
+y <- list(
+  title = "Prosper Score",
+  titlefont = f
+)
+
+plot_ly(data= pr ,x=factor(defaulted), 
+        y = as.numeric(ProsperScore), 
+        type = "box") %>%
+        layout(xaxis = x, yaxis = y, 
+title = "Do the loans that have defaulted have a lower Prosper Score?" )
+```
+
+### Description Three
+The plot above displays a box plot for Prosper Score by the boolean value, defaulted or not. The third quartile for the loans that defaulted is a little bit lower than the loans that didn't default. However the first quartile and median are equivalent for loans that defaulted and loans that didn't default. So it seems that the Prosper score is not a good variable to use to determine if an investor should invest or not in a specific loan.
+
+
+# Reflection
+
+We have been able to analyze that Prosper's portfolio has really changed between 2009 and 2014.
+
+It seems that Prosper doesn't only use credit scores to assess risk but also several other variables that could be in the dataset, in addition to external data not included in the dataset available. 
+
+Instead of just using the Prosper score to decide whether or not to invest, it would be interesting to build a predictive model that quantifies if the person is going to default on their loan. We could use, for example, a logistic regression. However there are lots of variables that are correlated, such as loan origination amount, credit score, and Prosper score. It's important to carefully choose which variables should be included in the model.
+
+
+
+
+
+
