@@ -11,10 +11,10 @@ Multivariate Analysis
 - How does Prosper assess risk?
 - Does Prosper assess risk correctly?
 
-You can access the exploratory analysis by clicking [here]("http://rpubs.com/eugenecamus/180983").
+You can access the exploratory analysis by clicking [here](http://rpubs.com/eugenecamus/180983).
 
 ### Run
-Or if you prefer, you can run the RMarkdown file ```Prosper-EDA-Yann-Dupis_final.Rmd``` by downloading RStudio [here]("https://www.rstudio.com").
+Or if you prefer, you can run the RMarkdown file ```Prosper-EDA-Yann-Dupis_final.Rmd``` by downloading RStudio [here](https://www.rstudio.com).
 
 ### Data
 The dataset used in this project is included as ```prosperLoanData.csv```. The dataset's attributes are included in the file ``` Prosper Loan Data - Variable Definitions.xlsx```.
